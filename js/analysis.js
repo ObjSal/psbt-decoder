@@ -129,8 +129,10 @@
     // --- Verdict
     const levels = checks.map(c => c.level);
     let verdict, verdictTitle, verdictDetail;
-    if (levels.includes('danger')) { verdict = 'danger'; verdictTitle = 'Do not sign — critical issues found'; verdictDetail = 'One or more checks flagged a condition that can lose funds or indicates an invalid/malicious transaction.'; }
-    else if (levels.includes('warn')) { verdict = 'caution'; verdictTitle = 'Review carefully before signing'; verdictDetail = 'Structural checks passed, but there are warnings you should understand first.'; }
+    // Once every input is signed the next irreversible act is broadcasting, not signing.
+    const act = (model.status === 'finalized' || model.status === 'signed' || model.status === 'signed?') ? 'broadcast' : 'sign';
+    if (levels.includes('danger')) { verdict = 'danger'; verdictTitle = `Do not ${act} — critical issues found`; verdictDetail = 'One or more checks flagged a condition that can lose funds or indicates an invalid/malicious transaction.'; }
+    else if (levels.includes('warn')) { verdict = 'caution'; verdictTitle = `Review carefully before ${act}ing`; verdictDetail = 'Structural checks passed, but there are warnings you should understand first.'; }
     else { verdict = 'ok'; verdictTitle = 'No structural problems found'; verdictDetail = 'Fee, sighash flags, scripts and UTXO data are consistent. Still confirm every external address and amount yourself — this tool cannot know who the recipients are.'; }
     const order = { danger: 0, warn: 1, ok: 2, info: 3 };
     checks.sort((a, b) => order[a.level] - order[b.level]);

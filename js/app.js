@@ -19,6 +19,10 @@
     parent.postMessage({ type: 'psbt-decoder:height', height: document.documentElement.scrollHeight }, '*');
   }
   if (embed && 'ResizeObserver' in window) new ResizeObserver(postHeight).observe(document.body);
+  if (embed) {
+    const cp = $('checks-panel');
+    cp.querySelector('h2').addEventListener('click', () => cp.classList.toggle('open'));
+  }
 
   function toBytes(text) {
     const s = text.replace(/\s+/g, '');
@@ -53,6 +57,14 @@
     UI.renderFlow($('flow'), model, a);
     UI.renderMoneyBar($('moneybar'), model, a);
     UI.renderChecks($('checks'), a);
+    if (embed) {
+      const n = { danger: 0, warn: 0 };
+      a.checks.forEach(c => { if (c.level in n) n[c.level]++; });
+      const parts = [];
+      if (n.danger) parts.push(`${n.danger} critical`);
+      if (n.warn) parts.push(`${n.warn} warning${n.warn === 1 ? '' : 's'}`);
+      $('checks-panel').querySelector('h2').textContent = 'Security checks' + (parts.length ? ` · ${parts.join(' · ')}` : ' · all passed');
+    }
     UI.renderInputs($('inputs'), model);
     UI.renderOutputs($('outputs'), model);
     UI.renderScripts($('scripts'), model);

@@ -175,7 +175,13 @@ footer { text-align: center; color: var(--fg3); font-size: 12px; padding: 20px; 
    Used by sibling tools that show this page in a sandboxed iframe. */
 body.embed header, body.embed footer,
 body.embed #input-panel textarea, body.embed #input-panel .toolbar,
-body.embed #checks-panel, body.embed #details-panel { display: none !important; }
+body.embed #details-panel { display: none !important; }
+/* In embed mode the security checks sit collapsed under the verdict; the heading toggles them. */
+body.embed #checks-panel > h2 { cursor: pointer; user-select: none; margin-bottom: 0; }
+body.embed #checks-panel > h2::before { content: '\25B8'; display: inline-block; width: 1.1em; }
+body.embed #checks-panel.open > h2 { margin-bottom: 10px; }
+body.embed #checks-panel.open > h2::before { content: '\25BE'; }
+body.embed #checks-panel:not(.open) > #checks { display: none; }
 body.embed #input-panel { background: none; border: 0; padding: 0; margin: 0; }
 body.embed #input-panel #error { margin-top: 0; }
 body.embed main { max-width: none; padding: 8px 10px 10px; }
