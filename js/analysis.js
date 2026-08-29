@@ -54,8 +54,9 @@
     } else if (inputs.length) {
       const missing = inputs.filter(i => i.value === null).map(i => '#' + i.index);
       add(model.kind === 'psbt' ? 'danger' : 'warn', 'Input amounts unknown — fee cannot be verified',
-        `${missing.length === inputs.length ? 'No input' : 'Input(s) ' + missing.join(', ')} carr${missing.length === 1 ? 'ies' : 'y'} witness_utxo / non_witness_utxo data. Without it a signer cannot tell how much is being spent, so an attacker could hide a huge fee. ${model.kind === 'psbt' ? 'A well-formed PSBT for signing must include UTXO information.' : 'Look the input outpoints up on a block explorer to compute the fee.'}`);
+        `${missing.length === inputs.length ? 'No input' : 'Input(s) ' + missing.join(', ')} carr${missing.length === 1 ? 'ies' : 'y'} witness_utxo / non_witness_utxo data. Without it a signer cannot tell how much is being spent, so an attacker could hide a huge fee. ${model.kind === 'psbt' ? 'A well-formed PSBT for signing must include UTXO information.' : 'Use the "Input amounts" panel to paste the previous transactions or fetch them from an explorer.'}`);
     }
+    if (model.externalUtxos) add('info', `${model.externalUtxos} input amount(s) supplied externally`, 'These amounts come from pasted previous transactions or a block explorer, not from the signed data. The fee shown is only as trustworthy as that source.');
     add('info', 'Totals', `Outputs: ${fmtAmount(model.totalOut)}${model.allInputsKnown ? ' · Inputs: ' + fmtAmount(model.totalIn) : ''}.`);
 
     // --- Per input checks

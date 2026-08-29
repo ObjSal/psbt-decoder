@@ -32,6 +32,16 @@
 
   <div id="results" style="display:none">
     <section id="verdict"></section>
+    <section class="panel" id="utxo-panel" style="display:none">
+      <h2>Input amounts</h2>
+      <p class="muted" style="margin:0 0 10px">A raw transaction only references its inputs by <span class="mono">txid:vout</span>; the amounts live in the previous transactions. Supply them to verify the fee:</p>
+      <textarea id="prevtxs" spellcheck="false" style="min-height:70px" placeholder="Paste the raw hex of the previous transaction(s), one per line — resolved offline, nothing is sent anywhere."></textarea>
+      <div class="toolbar">
+        <button id="addprev">Add previous transactions</button>
+        <button id="fetchprev">Fetch from mempool.space…</button>
+        <span class="hint" id="utxo-status">Fetching sends the input txids to mempool.space. It only happens when you click.</span>
+      </div>
+    </section>
     <section><div class="stats" id="stats"></div></section>
     <section class="panel" id="flow-panel"><h2>Money flow</h2><div class="flow-wrap" id="flow"></div><div id="moneybar"></div></section>
     <section class="panel" id="checks-panel"><h2>Security checks</h2><div id="checks"></div></section>

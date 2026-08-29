@@ -1,6 +1,6 @@
 const path = require('path');
-for (const f of ['crypto', 'bytes', 'encoding', 'script', 'tx']) require(path.join(__dirname, '../js/' + f + '.js'));
-const { Bytes, Tx, Script } = globalThis;
+for (const f of ['crypto', 'bytes', 'encoding', 'script', 'tx', 'psbt', 'analysis']) require(path.join(__dirname, '../js/' + f + '.js'));
+const { Bytes, Tx, Script, Psbt, Analysis } = globalThis;
 let fails = 0;
 function eq(name, a, b) { if (a !== b) { fails++; console.log('FAIL', name, '\n got', a, '\n exp', b); } else console.log('ok  ', name); }
 
@@ -29,4 +29,22 @@ eq('example out0 type', Script.classifyOutput(e.outputs[0].script).type, 'p2wpkh
 console.log('example txid', e.txid, 'out0', e.outputs[0].value, Script.classifyOutput(e.outputs[0].script).address, 'out1', e.outputs[1].value);
 console.log('script asm', Script.classifyOutput(e.outputs[0].script).asm);
 console.log('inner multisig', Script.classifyInner(Bytes.hexToBytes('5221' + '02'.padEnd(66, 'a') + '21' + '03'.padEnd(66, 'b') + '52ae')));
+
+// Prevout resolution for a raw tx: build a fake previous tx whose output funds input #0 of a spending tx
+const prev = { version: 2, locktime: 0, inputs: [{ txid: '11'.repeat(32), vout: 0, scriptSig: new Uint8Array(0), sequence: 0xffffffff, witness: [] }], outputs: [{ value: 5000n, script: Bytes.hexToBytes('0014' + 'ab'.repeat(20)) }, { value: 123456n, script: e.outputs[0].script }] };
+const prevTx = Tx.parseTx(Tx.serializeTx(prev));
+const spend = { version: 2, locktime: 0, inputs: [{ txid: prevTx.txid, vout: 1, scriptSig: new Uint8Array(0), sequence: 0xfffffffd, witness: [] }], outputs: [{ value: 120000n, script: e.outputs[1].script }] };
+const spendTx = Tx.parseTx(Tx.serializeTx(spend)); spendTx.segments = []; spendTx.warnings = [];
+const m0 = Psbt.buildModel(spendTx, 'rawtx', 'mainnet');
+eq('no prevouts -> unknown', m0.allInputsKnown, false);
+const m1 = Psbt.buildModel(spendTx, 'rawtx', 'mainnet', { prevouts: Psbt.prevoutsFromTxs([prevTx]) });
+eq('prevouts -> known', m1.allInputsKnown, true);
+eq('prevouts fee', m1.fee, 3456n);
+eq('prevouts source', m1.inputs[0].utxoSource, 'previous tx (pasted)');
+eq('prevouts spend type', m1.inputs[0].spend.type, 'p2wpkh');
+const m2 = Psbt.buildModel(spendTx, 'rawtx', 'mainnet', { prevouts: Psbt.prevoutsFromExplorer(prevTx.txid, { vout: [{ value: 5000, scriptpubkey: '0014' + 'ab'.repeat(20) }, { value: 123456, scriptpubkey: Bytes.bytesToHex(e.outputs[0].script) }] }) });
+eq('explorer prevouts fee', m2.fee, 3456n);
+eq('externalUtxos', m2.externalUtxos, 1);
+const an = Analysis.analyze(m2);
+eq('external note', an.checks.some(c => /supplied externally/.test(c.title)), true);
 process.exit(fails ? 1 : 0);

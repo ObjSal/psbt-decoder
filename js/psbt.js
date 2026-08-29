@@ -266,8 +266,22 @@
   }
   function estimateOutputVsize(script) { return 9 + script.length; }
 
-  function buildModel(parsed, kind, network) {
-    const model = { kind, network, inputs: [], outputs: [], warnings: parsed.warnings || [], segments: parsed.segments, bytes: parsed.bytes };
+  /** Build a prevout map ("txid:vout" -> {value, script, source}) from parsed previous transactions. */
+  function prevoutsFromTxs(txs, source = 'previous tx (pasted)') {
+    const map = {};
+    for (const t of txs) t.outputs.forEach((o, i) => { map[`${t.txid}:${i}`] = { value: o.value, script: o.script, source }; });
+    return map;
+  }
+  /** Same, from a mempool.space-style /api/tx/:txid JSON object. */
+  function prevoutsFromExplorer(txid, json, source = 'mempool.space') {
+    const map = {};
+    (json.vout || []).forEach((o, i) => { map[`${txid}:${i}`] = { value: BigInt(o.value), script: Bytes.hexToBytes(o.scriptpubkey), source }; });
+    return map;
+  }
+
+  function buildModel(parsed, kind, network, opts = {}) {
+    const prevouts = opts.prevouts || {};
+    const model = { kind, network, inputs: [], outputs: [], warnings: parsed.warnings || [], segments: parsed.segments, bytes: parsed.bytes, externalUtxos: 0 };
     let tx;
     if (kind === 'psbt') {
       model.psbt = parsed;
@@ -314,6 +328,8 @@
           utxoSource = utxoSource ? 'both' : 'non_witness_utxo';
         }
       }
+      const pv = prevouts[`${txin.txid}:${txin.vout}`];
+      if (!utxo && pv) { utxo = { value: pv.value, script: pv.script }; utxoSource = pv.source || 'provided'; inp.utxoExternal = true; model.externalUtxos++; }
       inp.utxo = utxo; inp.utxoSource = utxoSource;
       inp.value = utxo ? utxo.value : null;
       inp.spkClass = utxo ? Script.classifyOutput(utxo.script, network) : null;
@@ -443,5 +459,5 @@
     return model;
   }
 
-  root.Psbt = { MAGIC, isPsbt, parsePsbt, buildModel, sighashName, SIGHASH_NAMES, GLOBAL_TYPES, INPUT_TYPES, OUTPUT_TYPES };
+  root.Psbt = { MAGIC, isPsbt, parsePsbt, buildModel, prevoutsFromTxs, prevoutsFromExplorer, sighashName, SIGHASH_NAMES, GLOBAL_TYPES, INPUT_TYPES, OUTPUT_TYPES };
 })(typeof window !== 'undefined' ? window : globalThis);

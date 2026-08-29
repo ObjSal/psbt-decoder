@@ -7,6 +7,7 @@
   const EXAMPLE_TX = '020000000795db27ea7f5bbeb40319767af21f79867ef11115c803620ed50ecad0f3812f950000000000fdffffff74d8f7ba20f89808d8b17b0d05509b8ef67f897fcfbc17370133a7d8b7fb04d40100000000fdffffff21703e052184f37c68f54f0217025ab133cdd915a19797d6516a105c9783248e0200000000fdffffffff2a106aaf05472ece9c1aa7b356adfed2911fd042d9f792f0947edfb92075af0000000000fdffffff778f208a2d362f511009d11410880c3a09cf52ab3075d9febc26cc24aab80c010100000000fdffffff54ba5601156f57a64e520a922b32e0025fc28ec3451b226034cc8618321306e00200000000fdffffff73160a2212372a19cfe024515cc3dd61fe6cb225159a2d55bbabaecf1e70f1350000000000fdffffff06a02e63000000000016001473f1976eb4f050779d64eaec4841b84b528c4a3280841e0000000000160014cc0871b50fdb8279e5c0e0f4930fbac67ebf32334e61bc000000000016001487ded08db8f8141aac07956928e53fed6efae5296daf1d00000000001600146699dcb439b655f30e207bb363b5be98afc595cfa0680600000000001600141765f775397d289974ff8af1f41b93b83bb426d540420f0000000000160014fa2eddfa1210abfd5665ede6d3ee978d02e201ed00000000';
 
   let current = null; // {model, analysis}
+  let prevouts = {};  // "txid:vout" -> {value, script, source} supplied by the user or an explorer
 
   // Embed mode: ?embed=1 shows only verdict + stats + money flow (see css)
   // and reports the document height to the embedding page so an iframe can
@@ -36,14 +37,14 @@
     let model;
     if (Psbt.isPsbt(bytes)) {
       const parsed = Psbt.parsePsbt(bytes);
-      model = Psbt.buildModel(parsed, 'psbt', network);
+      model = Psbt.buildModel(parsed, 'psbt', network, { prevouts });
     } else {
       const segments = [];
       let tx;
       try { tx = Tx.parseTx(bytes, { segments }); }
       catch (e) { throw new Error(`Not a PSBT (no "psbt\\xff" magic) and not a valid raw transaction: ${e.message}`); }
       tx.segments = segments; tx.warnings = [];
-      model = Psbt.buildModel(tx, 'rawtx', network);
+      model = Psbt.buildModel(tx, 'rawtx', network, { prevouts });
       model.segments = segments; model.bytes = bytes;
     }
     return model;
@@ -75,11 +76,62 @@
     $('n-out').textContent = model.outputs.length;
     $('copyfinal').style.display = model.finalTx ? '' : 'none';
     $('results').style.display = '';
+    updateUtxoPanel(model);
     // auto-open small lists
     if (model.inputs.length <= 3) $('inputs').querySelectorAll('.card').forEach(c => c.classList.add('open'));
     if (model.outputs.length <= 3) $('outputs').querySelectorAll('.card').forEach(c => c.classList.add('open'));
     postHeight();
   }
+
+  function updateUtxoPanel(model) {
+    const missing = model.inputs.filter(i => i.value === null);
+    $('utxo-panel').style.display = missing.length ? '' : 'none';
+    $('fetchprev').disabled = !explorerBase();
+    if (missing.length && Object.keys(prevouts).length) setUtxoStatus(`${model.inputs.length - missing.length} of ${model.inputs.length} input amounts resolved; still missing: ${missing.map(i => '#' + i.index).join(', ')}.`);
+  }
+  const explorerBase = () => ({ mainnet: 'https://mempool.space', testnet: 'https://mempool.space/testnet', signet: 'https://mempool.space/signet' }[$('network').value] || null);
+  const setUtxoStatus = (t) => { $('utxo-status').textContent = t; };
+  function rerender() { try { render(decodeBytes(lastBytes, $('network').value)); } catch (e) { showError(e.message); } }
+
+  $('addprev').onclick = () => {
+    const chunks = $('prevtxs').value.split(/\s+/).filter(Boolean);
+    let added = 0, bad = 0;
+    for (const c of chunks) {
+      try { const t = Tx.parseTx(Bytes.hexToBytes(c)); Object.assign(prevouts, Psbt.prevoutsFromTxs([t])); added++; }
+      catch (e) { bad++; }
+    }
+    $('prevtxs').value = '';
+    setUtxoStatus(`Parsed ${added} previous transaction(s)${bad ? `, ${bad} could not be parsed` : ''}.`);
+    if (lastBytes) rerender();
+  };
+
+  $('fetchprev').onclick = async () => {
+    if (!current || !lastBytes) return;
+    const base = explorerBase();
+    if (!base) { setUtxoStatus('No public explorer for this network.'); return; }
+    const need = [...new Set(current.model.inputs.filter(i => i.value === null).map(i => i.txid))];
+    if (!need.length) return;
+    $('fetchprev').disabled = true;
+    let done = 0, failed = [];
+    setUtxoStatus(`Fetching 0 / ${need.length} previous transactions from ${base}…`);
+    const worker = async () => {
+      while (need.length) {
+        const txid = need.shift();
+        try {
+          const r = await fetch(`${base}/api/tx/${txid}`);
+          if (!r.ok) throw new Error(r.status);
+          Object.assign(prevouts, Psbt.prevoutsFromExplorer(txid, await r.json()));
+        } catch (e) { failed.push(txid.slice(0, 8) + '…'); }
+        done++;
+        setUtxoStatus(`Fetching ${done} / ${done + need.length} previous transactions…`);
+      }
+    };
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    $('fetchprev').disabled = false;
+    rerender();
+    if (failed.length) setUtxoStatus(`Could not fetch ${failed.length} transaction(s) (${failed.join(', ')}) — not found on ${base} or network error.`);
+    else if (current.model.allInputsKnown) setUtxoStatus(`All input amounts resolved from ${base}.`);
+  };
 
   function showError(msg) { const e = $('error'); e.textContent = msg; e.style.display = 'block'; $('results').style.display = 'none'; current = null; postHeight(); }
   function clearError() { $('error').style.display = 'none'; }
@@ -88,7 +140,9 @@
   function decode(scroll = true) {
     clearError();
     try {
-      lastBytes = toBytes($('input').value);
+      const bytes = toBytes($('input').value);
+      if (!lastBytes || Bytes.bytesToHex(bytes) !== Bytes.bytesToHex(lastBytes)) { prevouts = {}; setUtxoStatus('Fetching sends the input txids to mempool.space. It only happens when you click.'); }
+      lastBytes = bytes;
       render(decodeBytes(lastBytes, $('network').value));
       if (scroll) $('results').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (e) { console.error(e); showError('Decode failed: ' + e.message); }
@@ -97,7 +151,7 @@
   $('decode').onclick = () => decode(true);
   $('input').addEventListener('keydown', (e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') decode(); });
   $('network').onchange = () => { if (lastBytes) { try { render(decodeBytes(lastBytes, $('network').value)); } catch (e) { showError(e.message); } } };
-  $('clear').onclick = () => { $('input').value = ''; clearError(); $('results').style.display = 'none'; lastBytes = null; };
+  $('clear').onclick = () => { $('input').value = ''; clearError(); $('results').style.display = 'none'; lastBytes = null; prevouts = {}; };
   $('example').onclick = () => { $('input').value = EXAMPLE_PSBT; decode(); };
   $('exampletx').onclick = () => { $('input').value = EXAMPLE_TX; decode(); };
   $('paste').onclick = async () => { try { $('input').value = await navigator.clipboard.readText(); decode(); } catch (e) { showError('Clipboard access denied — paste manually (Ctrl/Cmd+V).'); } };

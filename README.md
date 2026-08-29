@@ -14,6 +14,7 @@ Everything runs client-side in the browser. No build step, no network requests �
 - **Verdict banner** – *safe / review / do not sign* – plus signing status (unsigned, partially signed, fully signed, finalized).
 - **Money-flow diagram** (Sankey-style SVG): inputs → tx → outputs with ribbons proportional to value, colour-coded as signed/unsigned input, external output, change, miner fee, OP_RETURN and problems. Hover for details.
 - **Stats**: totals, fee, fee rate (actual for signed, estimated for unsigned), size / vsize / weight, version, locktime, RBF, txid.
+- **Input amounts for raw transactions**: a raw tx only references its inputs by `txid:vout`, so the fee cannot be computed from it alone. An *Input amounts* panel appears whenever amounts are missing and lets you paste the previous transactions (resolved offline) or, on an explicit click, fetch them from mempool.space. Fee, verdict and spend types are recomputed.
 - **Security checks**:
   - fee sanity (absurd fee, zero fee, < 1 sat/vB), outputs exceeding inputs
   - missing `witness_utxo` / `non_witness_utxo` (fee cannot be verified)
@@ -42,9 +43,9 @@ Paste a PSBT / transaction and press **Decode** (or ⌘/Ctrl+Enter). "Example PS
 
 ## Security notes
 
-- The app never sends data anywhere. Explorer links (mempool.space) only open if you click them.
+- The app never sends data anywhere on its own. The only network access is the optional **Fetch from mempool.space** button (which reveals the input txids of the transaction you are inspecting) and explorer links, both only on your click.
 - "No structural problems found" means the data is internally consistent — it can **not** tell you whether the external addresses are the ones you intend to pay. Always verify destinations and amounts yourself.
-- A raw (non-PSBT) transaction carries no UTXO information, so the fee and change cannot be verified from it alone.
+- A raw (non-PSBT) transaction carries no UTXO information, so the fee and change cannot be verified from it alone — supply the previous transactions via the Input amounts panel.
 
 ## Tests
 
