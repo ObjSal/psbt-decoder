@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PSBT Decoder</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='15' fill='%23f7931a'/%3E%3Ctext x='16' y='22' font-size='18' font-family='Arial' font-weight='bold' text-anchor='middle' fill='%23fff'%3E%E2%82%BF%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header>
+  <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="15" fill="#f7931a"/><text x="16" y="22" font-size="18" font-family="Arial" font-weight="bold" text-anchor="middle" fill="#fff">₿</text></svg>
+  <div><h1>PSBT Decoder</h1><div class="sub">Inspect PSBTs &amp; raw transactions — offline, in your browser</div></div>
+  <div class="spacer"></div>
+  <label>Network <select id="network"><option value="mainnet">Mainnet</option><option value="testnet">Testnet</option><option value="signet">Signet</option><option value="regtest">Regtest</option></select></label>
+</header>
+<main>
+  <section class="panel" id="input-panel">
+    <textarea id="input" spellcheck="false" placeholder="Paste a PSBT (base64 or hex) or a raw transaction (hex) here, or drop a .psbt file…"></textarea>
+    <div class="toolbar">
+      <button class="primary" id="decode">Decode</button>
+      <button id="paste">Paste from clipboard</button>
+      <button id="example">Example PSBT</button>
+      <button id="exampletx">Example raw tx</button>
+      <button id="clear">Clear</button>
+      <input type="file" id="file" style="display:none">
+      <button id="fileBtn">Open file…</button>
+      <span class="hint">Nothing leaves this page. Explorer links are only opened if you click them.</span>
+    </div>
+    <div id="error"></div>
+  </section>
+
+  <div id="results" style="display:none">
+    <section id="verdict"></section>
+    <section><div class="stats" id="stats"></div></section>
+    <section class="panel" id="flow-panel"><h2>Money flow</h2><div class="flow-wrap" id="flow"></div><div id="moneybar"></div></section>
+    <section class="panel" id="checks-panel"><h2>Security checks</h2><div id="checks"></div></section>
+    <section class="panel" id="details-panel">
+      <div class="tabs" id="tabs">
+        <button data-tab="inputs" class="active">Inputs<span class="n" id="n-in"></span></button>
+        <button data-tab="outputs">Outputs<span class="n" id="n-out"></span></button>
+        <button data-tab="scripts">Scripts<span class="n" id="n-scripts"></span></button>
+        <button data-tab="hex">Annotated hex</button>
+        <button data-tab="psbt">PSBT fields</button>
+        <button data-tab="json">JSON</button>
+      </div>
+      <div class="tabpane active" id="tab-inputs"><div class="cards" id="inputs"></div></div>
+      <div class="tabpane" id="tab-outputs"><div class="cards" id="outputs"></div></div>
+      <div class="tabpane" id="tab-scripts"><div id="scripts"></div></div>
+      <div class="tabpane" id="tab-hex"><div class="hexlegend" id="hexlegend"></div><div class="hexinfo" id="hexinfo">Hover or click a segment to see what it is.</div><div class="hexview" id="hexview"></div></div>
+      <div class="tabpane" id="tab-psbt"><div id="psbtfields"></div></div>
+      <div class="tabpane" id="tab-json"><div class="toolbar" style="margin:0 0 10px"><button class="small" id="copyjson">Copy JSON</button><button class="small" id="copyfinal" style="display:none">Copy final tx hex</button></div><pre class="json" id="json"></pre></div>
+    </section>
+  </div>
+</main>
+<footer>PSBT Decoder · BIP174 / BIP370 · runs fully client-side · <a href="https://github.com/ObjSal/psbt-decoder">source on GitHub</a></footer>
+<script src="js/crypto.js"></script>
+<script src="js/bytes.js"></script>
+<script src="js/encoding.js"></script>
+<script src="js/script.js"></script>
+<script src="js/tx.js"></script>
+<script src="js/psbt.js"></script>
+<script src="js/analysis.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
