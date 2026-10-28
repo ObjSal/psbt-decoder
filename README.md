@@ -52,6 +52,7 @@ Paste a PSBT / transaction and press **Decode** (or ⌘/Ctrl+Enter). "Example PS
 ```sh
 node test/test-crypto.js     # SHA-256 / RIPEMD-160 / base58 / bech32 vectors
 node test/test-tx.js         # raw tx parsing, txid, round-trip
+node test/test-script.js     # output classifier: witness programs vs malformed look-alikes
 node test/test-psbt.js       # PSBT construction / parsing / analysis
 node test/test-fixtures.js   # fixtures generated with embit (signed, multisig, taproot, traps)
 python3 test/gen_psbts.py    # regenerate test/fixtures.json (requires `pip install embit`)

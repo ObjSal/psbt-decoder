@@ -93,13 +93,16 @@
     if (t.length === 3 && t[0].op === 0xa9 && t[1].data && t[1].data.length === 20 && t[2].op === 0x87) {
       return { ...res, type: 'p2sh', hash: hex(t[1].data), address: Encoding.base58Check(Bytes.concat(Uint8Array.of(net.p2sh), t[1].data)), description: 'Pay-to-Script-Hash (legacy wrapper)' };
     }
-    // Witness programs
-    if (t.length === 2 && (t[0].op === 0 || (t[0].op >= 0x51 && t[0].op <= 0x60)) && t[1].data && t[1].data.length >= 2 && t[1].data.length <= 40 && t[1].len === t[1].data.length + 1) {
+    // Witness programs (BIP141): a version opcode, then one direct push of 2-40 bytes that ends the script.
+    // A push that announces more bytes than the script holds is not a program (disassemble marks it with error).
+    if (t.length === 2 && (t[0].op === 0 || (t[0].op >= 0x51 && t[0].op <= 0x60)) && t[1].data && !t[1].error && t[1].op === t[1].data.length && t[1].data.length >= 2 && t[1].data.length <= 40) {
       const ver = t[0].op === 0 ? 0 : t[0].op - 0x50;
       const prog = t[1].data;
       const address = Encoding.segwitAddress(net.hrp, ver, prog);
       if (ver === 0 && prog.length === 20) return { ...res, type: 'p2wpkh', hash: hex(prog), address, description: 'Pay-to-Witness-Public-Key-Hash (native SegWit v0)' };
       if (ver === 0 && prog.length === 32) return { ...res, type: 'p2wsh', hash: hex(prog), address, description: 'Pay-to-Witness-Script-Hash (native SegWit v0)' };
+      // BIP141 fails any v0 program of another length, and BIP173 gives it no address
+      if (ver === 0) return { ...res, description: `Invalid v0 witness program (${prog.length} bytes; v0 must be 20 or 32, so it can never be spent)` };
       if (ver === 1 && prog.length === 32) return { ...res, type: 'p2tr', hash: hex(prog), address, description: 'Pay-to-Taproot (SegWit v1)' };
       return { ...res, type: 'witness_unknown', witnessVersion: ver, hash: hex(prog), address, description: `Unknown witness program v${ver} (${prog.length} bytes)` };
     }
@@ -121,6 +124,8 @@
     // Bare multisig
     const ms = parseMultisig(t);
     if (ms) return { ...res, type: 'multisig', ...ms, description: `Bare ${ms.m}-of-${ms.n} multisig` };
+    // Script parsing reaches every push, even in branches that never run, so a truncated one always fails
+    if (t.some(x => x.error)) return { ...res, description: 'Malformed script (a push runs past its end, so it can never be spent)' };
     return res;
   }
 
